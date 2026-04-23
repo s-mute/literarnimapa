@@ -1,0 +1,9 @@
+CLAUDE.md
+data/*.db
+__pycache__/
+*.pyc
+.venv*/
+.DS_Store
+**/.DS_Store
+_pipeline/texts/
+_pipeline/corpus/

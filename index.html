@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Literární mapa Česka</title>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      display: flex;
+      height: 100vh;
+      font-family: Georgia, 'Times New Roman', serif;
+      background: #f5f0e8;
+    }
+
+    #map {
+      flex: 1;
+      height: 100%;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: 320px;
+      min-width: 320px;
+      height: 100%;
+      background: #faf7f2;
+      border-left: 1px solid #d9d0c0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #sidebar-header {
+      padding: 20px 20px 14px;
+      border-bottom: 1px solid #d9d0c0;
+      background: #f5f0e8;
+    }
+
+    #sidebar-header h1 {
+      font-size: 1.1rem;
+      font-weight: normal;
+      letter-spacing: 0.03em;
+      color: #2c2416;
+    }
+
+    #sidebar-header p {
+      font-size: 0.75rem;
+      color: #8a7d6b;
+      margin-top: 4px;
+      font-family: sans-serif;
+    }
+
+    /* ── Filter bar ── */
+    #filter-bar {
+      border-bottom: 1px solid #d9d0c0;
+      background: #f0ebe0;
+      font-family: sans-serif;
+      font-size: 0.78rem;
+      color: #5a4f3e;
+    }
+
+    .filter-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+    }
+
+    .filter-row.sub {
+      padding-left: 36px;
+      padding-top: 6px;
+      padding-bottom: 6px;
+      border-top: 1px solid #e4ddd0;
+    }
+
+    .filter-row label { cursor: pointer; user-select: none; }
+
+    .filter-row input[type=checkbox] {
+      accent-color: #6b4f2a;
+      cursor: pointer;
+    }
+
+    #sub-options {
+      overflow: hidden;
+      transition: max-height 0.2s ease, opacity 0.2s ease;
+      max-height: 200px;
+      opacity: 1;
+    }
+
+    #sub-options.hidden {
+      max-height: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* ── Period filter ── */
+    #period-filter {
+      border-bottom: 1px solid #d9d0c0;
+      background: #f0ebe0;
+      padding: 10px 20px 12px;
+      font-family: sans-serif;
+    }
+
+    #period-filter .filter-label {
+      font-size: 0.72rem;
+      color: #8a7d6b;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    #period-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .period-chip {
+      font-size: 0.73rem;
+      padding: 3px 9px;
+      border-radius: 12px;
+      border: 1px solid #b8a990;
+      background: #faf7f2;
+      color: #5a4f3e;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.12s, color 0.12s;
+    }
+
+    .period-chip.active {
+      background: #6b4f2a;
+      border-color: #6b4f2a;
+      color: #faf7f2;
+    }
+
+    /* ── Author list ── */
+    #place-title {
+      padding: 16px 20px 10px;
+      font-size: 1rem;
+      color: #2c2416;
+      border-bottom: 1px solid #e8e0d0;
+      display: none;
+    }
+
+    #place-title span {
+      font-size: 0.72rem;
+      font-family: sans-serif;
+      color: #8a7d6b;
+      margin-left: 6px;
+    }
+
+    #author-list {
+      overflow-y: auto;
+      flex: 1;
+      padding: 8px 0;
+    }
+
+    .author-item {
+      padding: 10px 20px;
+      border-bottom: 1px solid #ede7da;
+      cursor: default;
+    }
+
+    .author-item:last-child { border-bottom: none; }
+
+    .author-name {
+      font-size: 0.92rem;
+      color: #2c2416;
+    }
+
+    .author-meta {
+      font-size: 0.72rem;
+      font-family: sans-serif;
+      color: #8a7d6b;
+      margin-top: 3px;
+    }
+
+    .author-meta a {
+      color: #6b4f2a;
+      text-decoration: none;
+    }
+
+    .author-meta a:hover { text-decoration: underline; }
+
+    .badge-cs {
+      display: inline-block;
+      font-size: 0.65rem;
+      background: #e8dfc8;
+      color: #6b4f2a;
+      border-radius: 3px;
+      padding: 1px 5px;
+      margin-left: 5px;
+      vertical-align: middle;
+      font-family: sans-serif;
+    }
+
+    /* ── Empty state ── */
+    #empty-state {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 30px;
+      color: #a09280;
+      font-size: 0.85rem;
+      font-family: sans-serif;
+      line-height: 1.6;
+    }
+
+    /* ── Legend dots ── */
+    .legend-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 5px;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+
+    /* ── Stats bar ── */
+    #stats-bar {
+      padding: 10px 20px;
+      border-top: 1px solid #d9d0c0;
+      font-family: sans-serif;
+      font-size: 0.72rem;
+      color: #8a7d6b;
+      background: #f0ebe0;
+    }
+
+    /* ── Name labels ── */
+    .author-label {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+    }
+
+    .author-label div {
+      font-family: Georgia, 'Times New Roman', serif;
+      color: #2c2416;
+      white-space: nowrap;
+      text-shadow:
+        -1px -1px 0 #faf7f2,
+         1px -1px 0 #faf7f2,
+        -1px  1px 0 #faf7f2,
+         1px  1px 0 #faf7f2;
+      pointer-events: none;
+      line-height: 1;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div id="sidebar">
+  <div id="sidebar-header">
+    <h1>Literární mapa Česka</h1>
+    <p>Rodiště básníků a spisovatelů</p>
+  </div>
+
+  <div id="filter-bar">
+    <div class="filter-row">
+      <input type="checkbox" id="show-authors" checked />
+      <label for="show-authors"><span class="legend-dot" style="background:#9c8060;opacity:0.7;"></span>Zobrazit autory</label>
+    </div>
+    <div id="sub-options">
+      <div class="filter-row sub">
+        <input type="checkbox" id="show-all" />
+        <label for="show-all">Zobrazit i méně známé autory</label>
+      </div>
+      <div class="filter-row sub">
+        <input type="checkbox" id="show-labels" checked />
+        <label for="show-labels">Zobrazit jména na mapě</label>
+      </div>
+      <div class="filter-row sub">
+        <input type="checkbox" id="show-clusters" checked />
+        <label for="show-clusters">Seskupovat značky</label>
+      </div>
+    </div>
+  </div>
+
+  <div id="period-filter">
+    <div class="filter-label">Období narození</div>
+    <div id="period-chips">
+      <span class="period-chip active" data-period="old">–1799</span>
+      <span class="period-chip active" data-period="c19">19. stol.</span>
+      <span class="period-chip active" data-period="interwar">Meziválečné</span>
+      <span class="period-chip active" data-period="postwar">Poválečné</span>
+      <span class="period-chip active" data-period="contemporary">Současní</span>
+      <span class="period-chip active" data-period="unknown">Neznámé</span>
+    </div>
+  </div>
+
+  <div id="place-title"></div>
+
+  <div id="author-list">
+    <div id="empty-state">
+      Klikněte na značku<br>pro zobrazení autorů
+    </div>
+  </div>
+
+  <div id="stats-bar" id="stats">Načítání…</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+// ── Map init ──────────────────────────────────────────────────────────────────
+const map = L.map('map', { center: [49.8, 15.5], zoom: 7 });
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
+  maxZoom: 19,
+}).addTo(map);
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let allPlaces = [];
+let showAuthors = true;
+let showAll = false;
+let showLabels = true;
+let showClusters = true;
+let clusterGroup = null;
+let labelLayer = L.layerGroup().addTo(map);
+
+const PERIODS = {
+  old:         { label: '–1799',        min: -Infinity, max: 1799 },
+  c19:         { label: '19. stol.',    min: 1800,      max: 1899 },
+  interwar:    { label: 'Meziválečné',  min: 1900,      max: 1938 },
+  postwar:     { label: 'Poválečné',    min: 1939,      max: 1989 },
+  contemporary:{ label: 'Současní',     min: 1990,      max: Infinity },
+  unknown:     { label: 'Neznámé',      min: null,      max: null },
+};
+
+let activePeriods = new Set(Object.keys(PERIODS));
+
+function authorPeriod(author) {
+  if (author.rok_narozeni == null) return 'unknown';
+  const y = author.rok_narozeni;
+  if (y <= 1799) return 'old';
+  if (y <= 1899) return 'c19';
+  if (y <= 1938) return 'interwar';
+  if (y <= 1989) return 'postwar';
+  return 'contemporary';
+}
+
+function isInPeriod(author) {
+  return activePeriods.has(authorPeriod(author));
+}
+
+// Label visibility thresholds by sitelinks count
+// Higher sitelinks → label appears at lower zoom level
+const LABEL_TIERS = [
+  { minSitelinks: 50, minZoom: 6 },
+  { minSitelinks: 20, minZoom: 7 },
+  { minSitelinks: 10, minZoom: 8 },
+  { minSitelinks:  3, minZoom: 9 },
+  { minSitelinks:  1, minZoom: 10 },
+];
+
+// ── Relevance filter ──────────────────────────────────────────────────────────
+function isRelevant(author) {
+  return author.sitelinks_count >= 3 || author.ma_cs_wiki;
+}
+
+function visibleAuthors(place) {
+  return (showAll ? place.autori : place.autori.filter(isRelevant))
+    .filter(isInPeriod);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function pluralAutoru(n) {
+  return n === 1 ? 'autor' : n < 5 ? 'autoři' : 'autorů';
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
+function showPlace(place) {
+  const authors = visibleAuthors(place);
+  if (!authors.length) return;
+
+  const listEl = document.getElementById('author-list');
+  listEl.style.display = '';
+
+  const titleEl = document.getElementById('place-title');
+  titleEl.style.display = 'block';
+  titleEl.innerHTML = place.nazev + `<span>${authors.length} ${pluralAutoru(authors.length)}</span>`;
+
+  listEl.innerHTML = authors.map(a => {
+    const years = a.rok_narozeni
+      ? `${a.rok_narozeni}–${a.rok_umrti ?? ''}`
+      : '';
+    const wdLink = a.wikidata_id
+      ? `<a href="https://www.wikidata.org/wiki/${a.wikidata_id}" target="_blank" rel="noopener">Wikidata</a>`
+      : '';
+    const csBadge = a.ma_cs_wiki ? '<span class="badge-cs">cs.wiki</span>' : '';
+    return `<div class="author-item">
+      <div class="author-name">${a.jmeno}${csBadge}</div>
+      <div class="author-meta">${years}${years && wdLink ? ' · ' : ''}${wdLink}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Labels ────────────────────────────────────────────────────────────────────
+function labelFontSize(sitelinks) {
+  if (sitelinks >= 50) return 14;
+  if (sitelinks >= 20) return 12;
+  if (sitelinks >= 10) return 11;
+  return 10;
+}
+
+function labelMinZoom(sitelinks) {
+  for (const tier of LABEL_TIERS) {
+    if (sitelinks >= tier.minSitelinks) return tier.minZoom;
+  }
+  return 99;
+}
+
+function buildLabels() {
+  labelLayer.clearLayers();
+  if (!showLabels || !showAuthors) return;
+
+  const zoom = map.getZoom();
+
+  allPlaces.forEach(place => {
+    const authors = visibleAuthors(place);
+    if (!authors.length) return;
+
+    // Pick the most notable author for this place
+    const top = authors.reduce((a, b) => b.sitelinks_count > a.sitelinks_count ? b : a);
+    if (zoom < labelMinZoom(top.sitelinks_count)) return;
+
+    const fontSize = labelFontSize(top.sitelinks_count);
+    const icon = L.divIcon({
+      className: 'author-label',
+      html: `<div style="font-size:${fontSize}px;opacity:${zoom >= 9 ? 1 : 0.8}">${top.jmeno}</div>`,
+      iconAnchor: [0, -8],
+    });
+
+    L.marker([place.lat, place.lon], { icon, interactive: false })
+      .addTo(labelLayer);
+  });
+}
+
+// ── Author markers ────────────────────────────────────────────────────────────
+function buildMarkers() {
+  if (clusterGroup) map.removeLayer(clusterGroup);
+  if (!showAuthors) {
+    clusterGroup = L.markerClusterGroup();
+    map.addLayer(clusterGroup);
+    buildLabels();
+    updateStats();
+    return;
+  }
+
+  clusterGroup = showClusters
+    ? L.markerClusterGroup({ maxClusterRadius: 40, spiderfyOnMaxZoom: true, showCoverageOnHover: false })
+    : L.layerGroup();
+
+  allPlaces.forEach(place => {
+    const authors = visibleAuthors(place);
+    if (!authors.length) return;
+
+    const marker = L.circleMarker([place.lat, place.lon], {
+      radius: 4,
+      fillColor: '#9c8060',
+      color: '#9c8060',
+      weight: 0,
+      fillOpacity: 0.45,
+    });
+
+    marker.bindTooltip(place.nazev, { direction: 'top', offset: [0, -4] });
+    marker.on('click', () => showPlace(place));
+    clusterGroup.addLayer(marker);
+  });
+
+  map.addLayer(clusterGroup);
+  buildLabels();
+  updateStats();
+}
+
+function updateStats() {
+  const authorPlaces = allPlaces.filter(p => visibleAuthors(p).length > 0);
+  const authorCount  = authorPlaces.reduce((s, p) => s + visibleAuthors(p).length, 0);
+
+  const parts = [];
+  if (showAuthors) parts.push(`${authorPlaces.length} míst · ${authorCount} autorů`);
+  document.getElementById('stats-bar').textContent = parts.join(' · ') || 'Vše skryto';
+}
+
+map.on('zoomend moveend', buildLabels);
+
+// ── Filter toggles ────────────────────────────────────────────────────────────
+document.getElementById('show-authors').addEventListener('change', e => {
+  showAuthors = e.target.checked;
+  document.getElementById('sub-options').classList.toggle('hidden', !showAuthors);
+  buildMarkers();
+});
+
+document.getElementById('show-all').addEventListener('change', e => {
+  showAll = e.target.checked;
+  buildMarkers();
+  const titleEl = document.getElementById('place-title');
+  if (titleEl.style.display !== 'none' && titleEl.textContent) {
+    const name = titleEl.childNodes[0].textContent.trim();
+    const place = allPlaces.find(p => p.nazev === name);
+    if (place) showPlace(place);
+  }
+});
+
+document.getElementById('show-labels').addEventListener('change', e => {
+  showLabels = e.target.checked;
+  buildLabels();
+});
+
+document.getElementById('show-clusters').addEventListener('change', e => {
+  showClusters = e.target.checked;
+  buildMarkers();
+});
+
+document.getElementById('period-chips').addEventListener('click', e => {
+  const chip = e.target.closest('.period-chip');
+  if (!chip) return;
+  const period = chip.dataset.period;
+  if (activePeriods.has(period)) {
+    // Don't allow deselecting all
+    if (activePeriods.size === 1) return;
+    activePeriods.delete(period);
+    chip.classList.remove('active');
+  } else {
+    activePeriods.add(period);
+    chip.classList.add('active');
+  }
+  buildMarkers();
+  // Refresh open sidebar place
+  const titleEl = document.getElementById('place-title');
+  if (titleEl.style.display !== 'none') {
+    const name = titleEl.childNodes[0].textContent.trim();
+    const place = allPlaces.find(p => p.nazev === name);
+    if (place) showPlace(place);
+  }
+});
+
+// ── Load data ─────────────────────────────────────────────────────────────────
+fetch('public/data.json')
+  .then(r => r.json())
+  .then(data => {
+    allPlaces = data;
+    buildMarkers();
+  })
+  .catch(err => {
+    document.getElementById('stats-bar').textContent = 'Chyba při načítání dat.';
+    console.error(err);
+  });
+</script>
+</body>
+</html>
